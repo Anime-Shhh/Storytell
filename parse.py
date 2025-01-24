@@ -16,17 +16,17 @@ template = (
 )
 
 
-model = OllamaLLM(model = "llama3.2")
+model = OllamaLLM(model="llama3.2")
+
 
 def splitChunks(text, chunksize=8000):
-    #st.write(f"text length before splitting: {len(text)}")
+    # st.write(f"text length before splitting: {len(text)}")
     splitText = text.split()
-    #st.write(f"Total number of words in document: {len(splitText)}")
-    chunks = [splitText[i:i+chunksize] for i in range(0, len(splitText), chunksize)]
-    #st.write(f"total number of chunks: {len(chunks)}")
+    # st.write(f"Total number of words in document: {len(splitText)}")
+    chunks = [splitText[i:i+chunksize]
+              for i in range(0, len(splitText), chunksize)]
+    # st.write(f"total number of chunks: {len(chunks)}")
     return [" ".join(chunk) for chunk in chunks]
-
-
 
 
 def parseText(allChunks, parse_description):
@@ -36,11 +36,12 @@ def parseText(allChunks, parse_description):
     allParsedResults = []
 
     for i, chunk in enumerate(allChunks, start=1):
-        response = chain.invoke({"allContent": chunk, "parse_description": parse_description})
+        response = chain.invoke(
+            {"allContent": chunk, "parse_description": parse_description})
         if "empty string" in response.lower():
-            #to see where relevent info was found and where it doesnt exist
+            # to see where relevent info was found and where it doesnt exist
             st.write(f"Parsed chunk {i} of {len(allChunks)}: MISS")
-            #allParsedResults.append(response)
+            # allParsedResults.append(response)
         elif "no mention" in response.lower():
             st.write(f"Parsed chunk {i} of {len(allChunks)}: MISS")
         elif "not contain" in response.lower():
@@ -48,7 +49,5 @@ def parseText(allChunks, parse_description):
         else:
             st.write(f"Parsed chunk {i} of {len(allChunks)}: HIT!")
             allParsedResults.append(response)
-    
+
     return "\n".join(allParsedResults)
-
-
