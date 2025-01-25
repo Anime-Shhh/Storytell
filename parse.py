@@ -1,3 +1,4 @@
+from PyPDF2 import PdfReader
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 import streamlit as st
@@ -5,7 +6,7 @@ import streamlit as st
 
 template = (
     "You are an AI assistant tasked with helping users extract specific information from a PDF document. "
-    "You have been given a chunk of the document, and the user is asking about a specific event or detail. the chunk is as follows: {allContent}"
+    "You have been given chunks of the document and can only use these chunks to answer. the chunks are as follows: {allContent}"
     "Please follow these instructions carefully:\n\n"
     "1. **Context:** This is a portion of a larger document, and the user is asking about something specific: {parse_description}. "
     "You must provide an answer only if the information is present in this chunk.\n"
@@ -18,19 +19,58 @@ template = (
 
 model = OllamaLLM(model="llama3.2")
 
+chunkSize = 1000
 
-def splitChunks(text, chunksize=8000):
-    # st.write(f"text length before splitting: {len(text)}")
-    splitText = text.split()
-    # st.write(f"Total number of words in document: {len(splitText)}")
-    chunks = [splitText[i:i+chunksize]
-              for i in range(0, len(splitText), chunksize)]
-    # st.write(f"total number of chunks: {len(chunks)}")
-    return [" ".join(chunk) for chunk in chunks]
+
+def engineer_prompt(relevent_chunks, parse_description):
+    context = "Context:\n"
+    for i, chunk in enumerate(relevent_chunks):
+        context += f"{i+1}. \"{chunk}\"\n"
+
+    prompt = f"""
+    {context}
+    Instruction: Using ONLY the information provided in the context above,
+    answer the following question. If the context does not provide enough
+    information to answer the question, respond with "I cannot answer this
+    question based on the given context."
+
+    Question: {parse_description}
+
+    """
+    return prompt
+
+
+def extract_text_to_chunks(pdf, chunksize=chunkSize):
+    reader = PdfReader(pdf)
+    chunks = []
+    curr_chunk = []
+    curr_chunk_word_count = 0
+
+    for page in reader.pages:
+        page_text = page.extract_text()
+
+        words = page_text.split()
+
+        for word in words:
+            curr_chunk.append(word)
+            curr_chunk_word_count += 1
+
+            if curr_chunk_word_count >= chunksize:
+                chunks.append(" ".join(curr_chunk))
+                curr_chunk_word_count = 0
+                curr_chunk = []
+
+    # possible case of leftovers in curr_chunk then add it as the last chunk
+    if curr_chunk:
+        chunks.append(" ".join(curr_chunk))
+
+    return chunks
 
 
 def parseText(allChunks, parse_description):
+
     prompt = ChatPromptTemplate.from_template(template)
+    # prompt = engineer_prompt(allChunks, parse_description)
     chain = prompt | model
 
     allParsedResults = []
@@ -51,3 +91,13 @@ def parseText(allChunks, parse_description):
             allParsedResults.append(response)
 
     return "\n".join(allParsedResults)
+
+
+def promptLLM(relevent_chunks, parse_description):
+    prompt = engineer_prompt(relevent_chunks, parse_description)
+
+    prompt_template = ChatPromptTemplate.from_template("{input}")
+    chain = prompt_template | model
+
+    response = chain.invoke({"input": prompt})
+    return response
