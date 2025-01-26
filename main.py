@@ -56,4 +56,5 @@ if userFile is not None:
             # st.write("Cleaned content")
             # st.write(recheckText(parsedContent))
         else:
+            # in case nothing is passed
             st.warning("Enter a valid question or description")
