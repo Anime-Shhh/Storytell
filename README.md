@@ -1,4 +1,4 @@
-# AI PDF Reader
+# Storytell
 
 This is a Streamlit-based application that allows users to upload PDF files, extract their content into manageable chunks, and interact with an AI model to answer questions about the content. The project leverages OpenAI's GPT-3.5-turbo for natural language processing and SentenceTransformers for embedding and similarity matching.
 
@@ -8,8 +8,8 @@ This is a Streamlit-based application that allows users to upload PDF files, ext
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/ai-pdf-reader.git
-   cd ai-pdf-reader
+   git clone https://github.com/your-username/Storytell.git
+   cd Storytell
    ```
 2. Set up a Python virtual environment (optional but recommended):
    ```bash
