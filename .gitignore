@@ -1,3 +1,5 @@
+ignore/
+apiKeys.py
 *.pdf
 .venv/
 __pycache__/

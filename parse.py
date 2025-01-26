@@ -1,25 +1,13 @@
+import openai
+from apiKeys import OpenAi
 from PyPDF2 import PdfReader
-from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
-import streamlit as st
 
 
-template = (
-    "You are an AI assistant tasked with helping users extract specific information from a PDF document. "
-    "You have been given chunks of the document and can only use these chunks to answer. the chunks are as follows: {allContent}"
-    "Please follow these instructions carefully:\n\n"
-    "1. **Context:** This is a portion of a larger document, and the user is asking about something specific: {parse_description}. "
-    "You must provide an answer only if the information is present in this chunk.\n"
-    "2. **Search for Relevant Information:** Focus on the most relevant parts of the text, and only extract the information that directly matches the user's question. "
-    "3. **No Extra Content:** Do not include any extra explanations, and return only the extracted information. "
-    "4. **Empty Response:** If you do not find any relevant information in this chunk that answers the prompt, return an empty string."
-    "5. **Chunk Consideration:** Each chunk represents part of a larger document. If the information is not in this chunk, return an empty string. If it is, answer succinctly."
-)
+openai.api_key = OpenAi
 
 
-model = OllamaLLM(model="llama3.2")
-
-chunkSize = 1000
+chunkSize = 300
 
 
 def engineer_prompt(relevent_chunks, parse_description):
@@ -30,7 +18,7 @@ def engineer_prompt(relevent_chunks, parse_description):
     prompt = f"""
     {context}
     Instruction: Using ONLY the information provided in the context above,
-    answer the following question. If the context does not provide enough
+    answer the following question in DETAIL. If the context does not provide enough
     information to answer the question, respond with "I cannot answer this
     question based on the given context."
 
@@ -67,37 +55,18 @@ def extract_text_to_chunks(pdf, chunksize=chunkSize):
     return chunks
 
 
-def parseText(allChunks, parse_description):
-
-    prompt = ChatPromptTemplate.from_template(template)
-    # prompt = engineer_prompt(allChunks, parse_description)
-    chain = prompt | model
-
-    allParsedResults = []
-
-    for i, chunk in enumerate(allChunks, start=1):
-        response = chain.invoke(
-            {"allContent": chunk, "parse_description": parse_description})
-        if "empty string" in response.lower():
-            # to see where relevent info was found and where it doesnt exist
-            st.write(f"Parsed chunk {i} of {len(allChunks)}: MISS")
-            # allParsedResults.append(response)
-        elif "no mention" in response.lower():
-            st.write(f"Parsed chunk {i} of {len(allChunks)}: MISS")
-        elif "not contain" in response.lower():
-            st.write(f"Parsed chunk {i} of {len(allChunks)}: MISS")
-        else:
-            st.write(f"Parsed chunk {i} of {len(allChunks)}: HIT!")
-            allParsedResults.append(response)
-
-    return "\n".join(allParsedResults)
-
-
 def promptLLM(relevent_chunks, parse_description):
     prompt = engineer_prompt(relevent_chunks, parse_description)
 
-    prompt_template = ChatPromptTemplate.from_template("{input}")
-    chain = prompt_template | model
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system",
+             "content": "You are a assistant answering questions based only on the provided context"},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=500,
+        temperature=0.7
+    )
 
-    response = chain.invoke({"input": prompt})
-    return response
+    return response.choices[0].message.content.strip()

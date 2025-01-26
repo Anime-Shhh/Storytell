@@ -2,6 +2,6 @@ streamlit
 PyPDF2
 python-dotenv
 langchain
-langchain_ollama
+openai
 transformers
 sentence-transformers
