@@ -8,7 +8,7 @@ This is a Streamlit-based application that allows users to upload PDF files, ext
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/Storytell.git
+   git clone https://github.com/Anime-Shhh/Storytell.git
    cd Storytell
    ```
 2. Set up a Python virtual environment (optional but recommended):
