@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storytell - Chat with Your Book</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Background Elements -->
+    <div class="background-container">
+        <div class="geometric-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+            <div class="shape shape-5"></div>
+        </div>
+        <div class="particles"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-book-open"></i>
+                <span>Storytell</span>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <button id="clearSession" class="nav-link cta-button">New Book</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Chat Interface -->
+    <div class="chat-container">
+        <!-- PDF Upload Section -->
+        <div id="uploadSection" class="upload-section">
+            <div class="upload-card">
+                <div class="upload-icon">
+                    <i class="fas fa-book"></i>
+                </div>
+                <h2>Upload Your Book</h2>
+                <p>Drop your book PDF here or click to browse</p>
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="pdfFile" accept=".pdf" style="display: none;">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Choose book PDF</span>
+                    </div>
+                </div>
+                <div class="upload-info">
+                    <p><i class="fas fa-info-circle"></i> Your book will be processed securely and won't be stored permanently</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div id="chatSection" class="chat-section" style="display: none;">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="chat-info">
+                    <div class="pdf-info">
+                        <i class="fas fa-book"></i>
+                        <span id="currentFileName">Your Book.pdf</span>
+                    </div>
+                    <div class="session-info">
+                        <span id="chunkCount">0 chapters loaded</span>
+                    </div>
+                </div>
+                <div class="chat-controls">
+                    <button id="uploadNew" class="btn btn-secondary">
+                        <i class="fas fa-upload"></i>
+                        <span>New Book</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <div class="message ai-message">
+                        <div class="message-avatar">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-bubble">
+                                <p>Hello! I'm your Storytell companion. I've analyzed your book and I'm ready to have spoiler-free conversations about what you've read so far. What would you like to know about the story, characters, or plot?</p>
+                            </div>
+                            <div class="message-time">Just now</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <div class="input-field">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Ask me anything about your book..."
+                            rows="1"
+                        ></textarea>
+                        <button id="sendMessage" class="send-button">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="input-suggestions">
+                        <span class="suggestion" data-suggestion="What is the main character's motivation?">Character motivation</span>
+                        <span class="suggestion" data-suggestion="Can you summarize what happened so far?">Story summary</span>
+                        <span class="suggestion" data-suggestion="What are the main themes in this book?">Book themes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="loading-spinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-ring"></div>
+                </div>
+                <h3>Analyzing your book...</h3>
+                <p>This may take a few moments</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Typing Indicator -->
+    <div id="typingIndicator" class="typing-indicator" style="display: none;">
+        <div class="typing-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+        <span>Reading your book...</span>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
+</body>
+</html> 
