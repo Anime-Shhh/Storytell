@@ -1,10 +1,11 @@
 import openai
-from apiKeys import OpenAi
+import os
+from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain_core.prompts import ChatPromptTemplate
 
 
-openai.api_key = OpenAi
+openai.api_key = os.environ.get("OpenAi")
 
 
 chunkSize = 300

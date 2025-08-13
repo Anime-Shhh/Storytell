@@ -1,7 +1,8 @@
+import os
 import openai
 import streamlit as st
 from sentence_transformers import SentenceTransformer, util
-from apiKeys import OpenAi
+from dotenv import load_dotenv
 from parse import (
     extract_text_to_chunks,
     engineer_prompt,
@@ -13,7 +14,8 @@ embedding_model = SentenceTransformer(
     'sentence-transformers/all-mpnet-base-v2')
 
 # load api
-openai.api_key = OpenAi
+# load_dotenv()
+openai.api_key = os.environ.get("OpenAi")
 
 st.title("AI PDF Reader")
 
