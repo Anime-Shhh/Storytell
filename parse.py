@@ -1,4 +1,6 @@
 import openai
+from openai import OpenAI
+from supabase import create_client
 import os
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
@@ -6,7 +8,10 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 openai.api_key = os.environ.get("OpenAi")
-
+supabase = create_client(os.environ.get("SUPABASE_URL"),
+                         os.environ.get("SUPABASE_KEY"))
+# OpenAI embedding model client initialization
+client = OpenAI()
 
 chunkSize = 300
 
@@ -27,6 +32,37 @@ def engineer_prompt(relevent_chunks, parse_description):
 
     """
     return prompt
+
+
+# create embeddings in supabase
+def embed_store(chunk):
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=chunk
+    )
+    # gets the first embedding from the list of embeddings generated
+    embedding = response.data[0].embedding
+
+    # move to supabase
+    supabase.table("documents").insert({
+        "content": chunk,
+        "embedding": embedding
+    }).execute()
+
+
+def parse_and_embed(pdf, chunksize=chunkSize):
+    reader = PdfReader(pdf)
+    curr_chunk = []
+
+    for page in reader.pages:
+        page_text = page.extractText()
+
+        words = page_text.split()
+
+        for word in words:
+            curr_chunk += word
+
+            # check for end of sentence and over chunksize limit
 
 
 def extract_text_to_chunks(pdf, chunksize=chunkSize):

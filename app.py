@@ -1,10 +1,11 @@
+import openai
+from openai import OpenAI
+from supabase import create_client
 from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-import openai
 from parse import extract_text_to_chunks, engineer_prompt, promptLLM
-from sentence_transformers import SentenceTransformer, util
 import uuid
 import json
 import time
@@ -13,11 +14,13 @@ app = Flask(__name__)
 app.secret_key = "storytell-secret-key-2024"  # Change this in production
 CORS(app)
 
-# Load embedding model
-embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
-
+# SETUP
 # Load OpenAI API key
 openai.api_key = os.environ.get("OpenAi")
+supabase = create_client(os.environ.get("SUPABASE_URL"),
+                         os.environ.get("SUPABASE_KEY"))
+# OpenAI embedding model client initialization
+client = OpenAI()
 
 # Store PDF data in memory with timestamps for cleanup
 pdf_sessions = {}
@@ -37,6 +40,24 @@ def cleanup_expired_sessions():
     for session_id in expired_sessions:
         del pdf_sessions[session_id]
         print(f"Cleaned up expired session: {session_id}")
+
+
+# create embeddings in supabase
+def embed_store(chunk):
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=chunk
+    )
+    # gets the first embedding from the list of embeddings generated
+    embedding = response.data[0].embedding
+
+    # move to supabase
+    supabase.table("documents").insert({
+        "content": chunk,
+        "embedding": embedding
+    }).execute()
+
+# --------------------routes---------------------#
 
 
 @app.route("/")
@@ -72,7 +93,16 @@ def upload_pdf():
         chunks = extract_text_to_chunks(file)
 
         # Create embeddings for chunks
-        chunk_embeddings = embedding_model.encode(chunks, convert_to_tensor=True)
+        # sentence transformers version
+        '''
+        chunk_embeddings = embedding_model.encode(
+            chunks, convert_to_tensor=True)
+        '''
+
+        # openai embedding model
+        chunk_embeddings = client.embeddings.create(
+            input=chunks, model="text-embedding-3-small", encoding_format="float"
+        )
 
         # Store in memory with timestamp
         pdf_sessions[session_id] = {
@@ -120,7 +150,9 @@ def chat():
         chunk_embeddings = pdf_data["embeddings"]
 
         # Embed the user's question
-        question_embedding = embedding_model.encode(message, convert_to_tensor=True)
+        question_embedding = client.embeddings.create(
+            input=message, model="text-embedding-3-small", encoding_format="float"
+        )
 
         # Find relevant chunks
         similarities = util.cos_sim(question_embedding, chunk_embeddings)
@@ -134,7 +166,8 @@ def chat():
         response = promptLLM(relevant_chunks, message)
 
         return jsonify(
-            {"response": response, "relevant_chunks_count": len(relevant_chunks)}
+            {"response": response,
+                "relevant_chunks_count": len(relevant_chunks)}
         )
 
     except Exception as e:
