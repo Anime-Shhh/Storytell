@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from parse import extract_text_to_chunks, engineer_prompt, promptLLM
+from parse import extract_text_to_chunks, engineer_prompt, promptLLM, embed, parse_file
 import uuid
 import json
 import time
@@ -42,21 +42,6 @@ def cleanup_expired_sessions():
         print(f"Cleaned up expired session: {session_id}")
 
 
-# create embeddings in supabase
-def embed_store(chunk):
-    response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=chunk
-    )
-    # gets the first embedding from the list of embeddings generated
-    embedding = response.data[0].embedding
-
-    # move to supabase
-    supabase.table("documents").insert({
-        "content": chunk,
-        "embedding": embedding
-    }).execute()
-
 # --------------------routes---------------------#
 
 
@@ -89,25 +74,12 @@ def upload_pdf():
         # Generate session ID
         session_id = str(uuid.uuid4())
 
-        # Extract text chunks from PDF
-        chunks = extract_text_to_chunks(file)
-
-        # Create embeddings for chunks
-        # sentence transformers version
-        '''
-        chunk_embeddings = embedding_model.encode(
-            chunks, convert_to_tensor=True)
-        '''
-
-        # openai embedding model
-        chunk_embeddings = client.embeddings.create(
-            input=chunks, model="text-embedding-3-small", encoding_format="float"
-        )
+        # embed the pdf in supabase
+        chunks = parse_file(file)
 
         # Store in memory with timestamp
         pdf_sessions[session_id] = {
             "chunks": chunks,
-            "embeddings": chunk_embeddings,
             "filename": file.filename,
             "created_at": time.time(),
             "last_accessed": time.time(),
@@ -147,7 +119,6 @@ def chat():
         # Get stored PDF data
         pdf_data = pdf_sessions[session_id]
         chunks = pdf_data["chunks"]
-        chunk_embeddings = pdf_data["embeddings"]
 
         # Embed the user's question
         question_embedding = client.embeddings.create(

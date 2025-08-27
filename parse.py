@@ -35,7 +35,7 @@ def engineer_prompt(relevent_chunks, parse_description):
 
 
 # create embeddings in supabase
-def embed_store(chunk):
+def embed(chunk):
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=chunk
@@ -50,9 +50,10 @@ def embed_store(chunk):
     }).execute()
 
 
-def parse_and_embed(pdf, chunksize=chunkSize):
+def parse_file(pdf, chunksize=chunkSize):
     reader = PdfReader(pdf)
     curr_chunk = []
+    chunk_count = 0
 
     for page in reader.pages:
         page_text = page.extractText()
@@ -60,43 +61,29 @@ def parse_and_embed(pdf, chunksize=chunkSize):
         words = page_text.split()
 
         for word in words:
-            curr_chunk += word
+            curr_chunk.append(word)
 
             # check for end of sentence and over chunksize limit
-
-
-def extract_text_to_chunks(pdf, chunksize=chunkSize):
-    reader = PdfReader(pdf)
-    chunks = []
-    curr_chunk = []
-    curr_chunk_word_count = 0
-
-    for page in reader.pages:
-        page_text = page.extract_text()
-
-        words = page_text.split()
-
-        for word in words:
-            curr_chunk.append(word)
-            curr_chunk_word_count += 1
-
-            if curr_chunk_word_count >= chunksize:
-                chunks.append(" ".join(curr_chunk))
-                curr_chunk_word_count = 0
+            if len(curr_chunk) >= chunksize and word.endswith((".", "?", "!")):
+                embed(" ".join(curr_chunk))
                 curr_chunk = []
+                chunk_count += 1
+                continue
 
-    # possible case of leftovers in curr_chunk then add it as the last chunk
     if curr_chunk:
-        chunks.append(" ".join(curr_chunk))
+        embed(" ".join(curr_chunk))
+        chunk_count += 1
+    return chunk_count
 
-    return chunks
+
+def retrieve_relevent_chunks(query)
 
 
 def promptLLM(relevent_chunks, parse_description):
     prompt = engineer_prompt(relevent_chunks, parse_description)
 
     response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system",
              "content": "You are a assistant answering questions based only on the provided context"},
