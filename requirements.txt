@@ -1,10 +1,8 @@
-streamlit
 PyPDF2
 python-dotenv
 langchain
 openai
 transformers
-sentence-transformers
 flask
 flask-cors
 gunicorn
