@@ -3,9 +3,9 @@ from openai import OpenAI
 from supabase import create_client
 from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
-import os
 from dotenv import load_dotenv
-from parse import extract_text_to_chunks, engineer_prompt, promptLLM, embed, parse_file
+import os
+from parse import engineer_prompt, promptLLM, embed, parse_file, retrieve_relevent_chunks
 import uuid
 import json
 import time
@@ -14,13 +14,22 @@ app = Flask(__name__)
 app.secret_key = "storytell-secret-key-2024"  # Change this in production
 CORS(app)
 
+# for debugging deployment
+app.config["DEBUG"] = True
+app.config["PROPAGATE_EXCEPTIONS"] = True
+
+
+load_dotenv()
+# OpenAI embedding model client initialization
+client = OpenAI(api_key=os.environ.get("OPENAI"))
+
+
 # SETUP
 # Load OpenAI API key
-openai.api_key = os.environ.get("OpenAi")
+
+
 supabase = create_client(os.environ.get("SUPABASE_URL"),
                          os.environ.get("SUPABASE_KEY"))
-# OpenAI embedding model client initialization
-client = OpenAI()
 
 # Store PDF data in memory with timestamps for cleanup
 pdf_sessions = {}
@@ -75,11 +84,10 @@ def upload_pdf():
         session_id = str(uuid.uuid4())
 
         # embed the pdf in supabase
-        chunks = parse_file(file)
+        parse_file(file)
 
         # Store in memory with timestamp
         pdf_sessions[session_id] = {
-            "chunks": chunks,
             "filename": file.filename,
             "created_at": time.time(),
             "last_accessed": time.time(),
@@ -89,8 +97,7 @@ def upload_pdf():
             {
                 "session_id": session_id,
                 "filename": file.filename,
-                "chunk_count": len(chunks),
-                "message": f"Book uploaded successfully! Found {len(chunks)} text sections for analysis.",
+                "message": f"Book uploaded successfully! Found x number of text sections for analysis.",
             }
         )
 
@@ -102,9 +109,9 @@ def upload_pdf():
 def chat():
     data = request.get_json()
     session_id = data.get("session_id")
-    message = data.get("message")
+    query = data.get("message")
 
-    if not session_id or not message:
+    if not session_id or not query:
         return jsonify({"error": "Missing session_id or message"}), 400
 
     if session_id not in pdf_sessions:
@@ -120,25 +127,15 @@ def chat():
         pdf_data = pdf_sessions[session_id]
         chunks = pdf_data["chunks"]
 
-        # Embed the user's question
-        question_embedding = client.embeddings.create(
-            input=message, model="text-embedding-3-small", encoding_format="float"
-        )
-
-        # Find relevant chunks
-        similarities = util.cos_sim(question_embedding, chunk_embeddings)
-        top_k = 5
-        top_chunk_indices = similarities.argsort(descending=True)[0][:top_k]
-
-        # Get relevant chunks
-        relevant_chunks = [chunks[i] for i in top_chunk_indices]
+        # Embed the user's question and get similar chunks
+        relevent_chunks = retrieve_relevent_chunks(top_k=5, query=query)
 
         # Get AI response
-        response = promptLLM(relevant_chunks, message)
+        response = promptLLM(relevent_chunks, query)
 
         return jsonify(
             {"response": response,
-                "relevant_chunks_count": len(relevant_chunks)}
+                "relevant_chunks_count": len(relevent_chunks)}
         )
 
     except Exception as e:

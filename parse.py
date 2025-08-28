@@ -1,17 +1,17 @@
 import openai
 from openai import OpenAI
 from supabase import create_client
-import os
 from dotenv import load_dotenv
+import os
 from PyPDF2 import PdfReader
 from langchain_core.prompts import ChatPromptTemplate
 
+load_dotenv()
 
-openai.api_key = os.environ.get("OpenAi")
+client = OpenAI(api_key=os.environ.get("OPENAI"))
 supabase = create_client(os.environ.get("SUPABASE_URL"),
                          os.environ.get("SUPABASE_KEY"))
 # OpenAI embedding model client initialization
-client = OpenAI()
 
 chunkSize = 300
 
@@ -19,7 +19,7 @@ chunkSize = 300
 def engineer_prompt(relevent_chunks, parse_description):
     context = "Context:\n"
     for i, chunk in enumerate(relevent_chunks):
-        context += f"{i+1}. \"{chunk}\"\n"
+        context += f"{i+1}. \"{chunk['content']}\"\n"
 
     prompt = f"""
     {context}
@@ -44,19 +44,22 @@ def embed(chunk):
     embedding = response.data[0].embedding
 
     # move to supabase
-    supabase.table("documents").insert({
-        "content": chunk,
-        "embedding": embedding
-    }).execute()
+    try:
+        result = supabase.table("documents").insert({
+            "content": chunk,
+            "embedding": embedding
+        }).execute()
+        print("Supabase insert result:", result)
+    except Exception as e:
+        print("Supabase insert error:", e)
 
 
 def parse_file(pdf, chunksize=chunkSize):
     reader = PdfReader(pdf)
     curr_chunk = []
-    chunk_count = 0
 
     for page in reader.pages:
-        page_text = page.extractText()
+        page_text = page.extract_text()
 
         words = page_text.split()
 
@@ -67,16 +70,29 @@ def parse_file(pdf, chunksize=chunkSize):
             if len(curr_chunk) >= chunksize and word.endswith((".", "?", "!")):
                 embed(" ".join(curr_chunk))
                 curr_chunk = []
-                chunk_count += 1
                 continue
 
     if curr_chunk:
         embed(" ".join(curr_chunk))
-        chunk_count += 1
-    return chunk_count
 
 
-def retrieve_relevent_chunks(query)
+def retrieve_relevent_chunks(query, top_k):
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=query
+    )
+
+    # gets the vector representation of the embedding in floats
+    query_emb = response.data[0].embedding
+
+    # retireves the top_k similar embeddings based on function in supabase
+    response = supabase.rpc(
+        "match_documents",
+        {"query_embedding": query_emb, "match_count": top_k}
+    ).execute()
+
+    # returns the embeddings(text)
+    return response.data
 
 
 def promptLLM(relevent_chunks, parse_description):
