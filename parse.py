@@ -1,11 +1,9 @@
-import openai
 from openai import OpenAI
 from supabase import create_client
 from dotenv import load_dotenv
 import os
 from PyPDF2 import PdfReader
-from langchain_core.prompts import ChatPromptTemplate
-
+from datetime import datetime as dt
 
 load_dotenv()
 
@@ -43,13 +41,15 @@ def embed(chunk, session_id):
     )
     # gets the first embedding from the list of embeddings generated
     embedding = response.data[0].embedding
+    created_at = dt.utcnow().isoformat()  # stores in UTC format
 
     # move to supabase
     try:
         result = supabase.table("documents").insert({
             "session_id": session_id,
             "content": chunk,
-            "embedding": embedding
+            "embedding": embedding,
+            "created_at": created_at
         }).execute()
         print("Supabase insert result:", result)
     except Exception as e:
@@ -81,24 +81,33 @@ def parse_file(pdf, chunksize=chunkSize, session_id=None):
 
 
 def retrieve_relevent_chunks(query, top_k, session_id):
-    response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=query
-    )
+    try:
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=query
+        )
 
-    # gets the vector representation of the embedding in floats
-    query_emb = response.data[0].embedding
+        # gets the vector representation of the embedding in floats
+        query_emb = response.data[0].embedding
 
-    # retireves the top_k similar embeddings based on function in supabase
-    response = supabase.rpc(
-        "match_documents",
-        {"query_embedding": query_emb,
-         "match_count": top_k,
-         "filter_session_id": session_id}
-    ).execute()
+        # retireves the top_k similar embeddings based on function in supabase
+        response = supabase.rpc(
+            "match_documents",
+            {"query_embedding": query_emb,
+             "match_count": top_k,
+             "filter_session_id": session_id}
+        ).execute()
 
-    # returns the embeddings(text)
-    return response.data
+        if not response.data:
+            return []
+
+        # returns the embeddings(text)
+        return response.data
+
+    except Exception as e:
+        print(
+            f"[Error] failed to retrieve relevent chunks, maybe expired session: {e}")
+        return []  # return empty list so frontend works without breaking
 
 
 def promptLLM(relevent_chunks, parse_description):

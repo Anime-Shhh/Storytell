@@ -1,13 +1,11 @@
-from parse import engineer_prompt, promptLLM, embed, parse_file, retrieve_relevent_chunks
-import openai
+from parse import engineer_prompt, promptLLM, parse_file, retrieve_relevent_chunks
 from openai import OpenAI
 from supabase import create_client
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import uuid
-import json
 import time
 
 load_dotenv()
@@ -129,6 +127,10 @@ def chat():
         relevent_chunks = retrieve_relevent_chunks(
             top_k=5, query=query, session_id=session_id)
 
+        if not relevent_chunks:
+            return jsonify({"error": """No content found for this session.
+                 You may have left the tab open for too long.
+                 Your session has been terminated or expired"""})
         # Get AI response
         response = promptLLM(relevent_chunks, query)
 
