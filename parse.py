@@ -6,6 +6,7 @@ import os
 from PyPDF2 import PdfReader
 from langchain_core.prompts import ChatPromptTemplate
 
+
 load_dotenv()
 
 client = OpenAI(api_key=os.environ.get("OPENAI"))
@@ -35,7 +36,7 @@ def engineer_prompt(relevent_chunks, parse_description):
 
 
 # create embeddings in supabase
-def embed(chunk):
+def embed(chunk, session_id):
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=chunk
@@ -46,6 +47,7 @@ def embed(chunk):
     # move to supabase
     try:
         result = supabase.table("documents").insert({
+            "session_id": session_id,
             "content": chunk,
             "embedding": embedding
         }).execute()
@@ -54,13 +56,15 @@ def embed(chunk):
         print("Supabase insert error:", e)
 
 
-def parse_file(pdf, chunksize=chunkSize):
+def parse_file(pdf, chunksize=chunkSize, session_id=None):
     reader = PdfReader(pdf)
     curr_chunk = []
 
     for page in reader.pages:
         page_text = page.extract_text()
 
+        if not page_text:
+            continue
         words = page_text.split()
 
         for word in words:
@@ -68,15 +72,15 @@ def parse_file(pdf, chunksize=chunkSize):
 
             # check for end of sentence and over chunksize limit
             if len(curr_chunk) >= chunksize and word.endswith((".", "?", "!")):
-                embed(" ".join(curr_chunk))
+                embed(chunk=" ".join(curr_chunk), session_id=session_id)
                 curr_chunk = []
                 continue
 
     if curr_chunk:
-        embed(" ".join(curr_chunk))
+        embed(chunk=" ".join(curr_chunk), session_id=session_id)
 
 
-def retrieve_relevent_chunks(query, top_k):
+def retrieve_relevent_chunks(query, top_k, session_id):
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=query
@@ -88,7 +92,9 @@ def retrieve_relevent_chunks(query, top_k):
     # retireves the top_k similar embeddings based on function in supabase
     response = supabase.rpc(
         "match_documents",
-        {"query_embedding": query_emb, "match_count": top_k}
+        {"query_embedding": query_emb,
+         "match_count": top_k,
+         "filter_session_id": session_id}
     ).execute()
 
     # returns the embeddings(text)
@@ -98,7 +104,7 @@ def retrieve_relevent_chunks(query, top_k):
 def promptLLM(relevent_chunks, parse_description):
     prompt = engineer_prompt(relevent_chunks, parse_description)
 
-    response = openai.chat.completions.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system",

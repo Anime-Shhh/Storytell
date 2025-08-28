@@ -1,3 +1,4 @@
+from parse import engineer_prompt, promptLLM, embed, parse_file, retrieve_relevent_chunks
 import openai
 from openai import OpenAI
 from supabase import create_client
@@ -5,10 +6,12 @@ from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
-from parse import engineer_prompt, promptLLM, embed, parse_file, retrieve_relevent_chunks
 import uuid
 import json
 import time
+
+load_dotenv()
+
 
 app = Flask(__name__)
 app.secret_key = "storytell-secret-key-2024"  # Change this in production
@@ -19,7 +22,6 @@ app.config["DEBUG"] = True
 app.config["PROPAGATE_EXCEPTIONS"] = True
 
 
-load_dotenv()
 # OpenAI embedding model client initialization
 client = OpenAI(api_key=os.environ.get("OPENAI"))
 
@@ -84,7 +86,7 @@ def upload_pdf():
         session_id = str(uuid.uuid4())
 
         # embed the pdf in supabase
-        parse_file(file)
+        parse_file(file, session_id=session_id)
 
         # Store in memory with timestamp
         pdf_sessions[session_id] = {
@@ -123,12 +125,9 @@ def chat():
         # Update last accessed time
         pdf_sessions[session_id]["last_accessed"] = time.time()
 
-        # Get stored PDF data
-        pdf_data = pdf_sessions[session_id]
-        chunks = pdf_data["chunks"]
-
         # Embed the user's question and get similar chunks
-        relevent_chunks = retrieve_relevent_chunks(top_k=5, query=query)
+        relevent_chunks = retrieve_relevent_chunks(
+            top_k=5, query=query, session_id=session_id)
 
         # Get AI response
         response = promptLLM(relevent_chunks, query)
